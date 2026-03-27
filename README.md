@@ -23,9 +23,11 @@ It ingests PDFs, chunks content, creates embeddings, stores vectors in ChromaDB,
 ├── chroma_db/              # created after ingestion
 └── src/
     ├── __init__.py
+    ├── embeddings.py
     ├── ingest.py
     ├── rag.py
-    └── utils.py
+    ├── utils.py
+    └── vector_store.py
 ```
 
 ## Local Setup
@@ -60,6 +62,8 @@ It ingests PDFs, chunks content, creates embeddings, stores vectors in ChromaDB,
 - Loads all PDFs from `./data/` using `PyPDFDirectoryLoader`
 - Uses `RecursiveCharacterTextSplitter` (`chunk_size=1000`, `chunk_overlap=200`)
 - Creates persistent ChromaDB at `./chroma_db`
+- Uses `chromadb.PersistentClient` and reuses existing collection if present
+- Centralizes embedding model loading via singleton in `src/embeddings.py`
 - Supports direct vector search and sample retrieval in ingestion script
 - Implements LCEL retrieval + generation chain in `src/rag.py`
 - Streamlit chat interface with:

@@ -6,19 +6,17 @@ from typing import List, Literal, TypedDict
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 from langchain_community.chat_models import ChatOllama
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 
 from src.utils import format_docs
+from src.vector_store import load_vector_store
 
 
 load_dotenv()
 
-CHROMA_DIR = Path("./chroma_db")
-EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+CHROMA_DIR = "./chroma_db"
 
 
 class RAGResult(TypedDict):
@@ -26,17 +24,12 @@ class RAGResult(TypedDict):
     source_documents: List[Document]
 
 
-def _get_vector_store() -> Chroma:
-    if not CHROMA_DIR.exists():
+def _get_vector_store():
+    if not Path(CHROMA_DIR).exists():
         raise FileNotFoundError(
-            f"Chroma DB not found at {CHROMA_DIR.resolve()}. Run `python -m src.ingest` first."
+            f"Chroma DB not found at {Path(CHROMA_DIR).resolve()}. Run `python -m src.ingest` first."
         )
-
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
-    return Chroma(
-        persist_directory=str(CHROMA_DIR),
-        embedding_function=embeddings,
-    )
+    return load_vector_store(path=CHROMA_DIR)
 
 
 def _get_llm(

@@ -5,14 +5,12 @@ from typing import List
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFDirectoryLoader
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 
+from src.vector_store import create_vector_store, load_vector_store
 
 DATA_DIR = Path("./data")
-CHROMA_DIR = Path("./chroma_db")
-EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+CHROMA_DIR = "./chroma_db"
 
 
 def load_documents(data_dir: Path = DATA_DIR) -> List[Document]:
@@ -47,43 +45,11 @@ def split_documents(documents: List[Document]) -> List[Document]:
     return splitter.split_documents(documents)
 
 
-def get_embeddings_model() -> HuggingFaceEmbeddings:
-    """Initialize a local HuggingFace embedding model."""
-    return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
-
-
-def build_vector_store(
-    chunks: List[Document], persist_directory: Path = CHROMA_DIR
-) -> Chroma:
-    """Create and persist a Chroma vector store from chunks."""
-    if not chunks:
-        raise ValueError("No chunks provided. Ingest documents before building vector store.")
-
-    persist_directory.mkdir(parents=True, exist_ok=True)
-    embeddings = get_embeddings_model()
-    vector_store = Chroma.from_documents(
-        documents=chunks,
-        embedding=embeddings,
-        persist_directory=str(persist_directory),
-    )
-    vector_store.persist()
-    return vector_store
-
-
 def query_vector_store(
-    query: str, k: int = 3, persist_directory: Path = CHROMA_DIR
+    query: str, k: int = 3
 ) -> List[Document]:
     """Query persisted Chroma store and return top-k chunks."""
-    if not persist_directory.exists():
-        raise FileNotFoundError(
-            f"Chroma directory not found at {persist_directory.resolve()}. Run ingestion first."
-        )
-
-    embeddings = get_embeddings_model()
-    vector_store = Chroma(
-        persist_directory=str(persist_directory),
-        embedding_function=embeddings,
-    )
+    vector_store = load_vector_store(path=CHROMA_DIR)
     return vector_store.similarity_search(query, k=k)
 
 
@@ -102,8 +68,11 @@ def main() -> None:
         print("[WARN] No chunks were created from loaded documents.")
         return
 
-    _ = build_vector_store(chunks)
-    print(f"[OK] Persisted vector store at: {CHROMA_DIR.resolve()}")
+    _, created_new = create_vector_store(chunks, path=CHROMA_DIR)
+    if created_new:
+        print(f"[OK] Persisted vector store at: {Path(CHROMA_DIR).resolve()}")
+    else:
+        print(f"[INFO] Reusing existing vector store at: {Path(CHROMA_DIR).resolve()}")
 
     sample_query = "What is the revenue for Q3?"
     print(f"\nSample query: {sample_query}")
